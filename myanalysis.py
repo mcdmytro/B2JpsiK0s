@@ -14,17 +14,17 @@ filenumber = sys.argv[1]
 # Create path
 main = b2.Path()
 
-# load input data from mdst/udst file
+# Load input data from mdst/udst file
 ma.inputMdstList(filelist=[b2.find_file(f"starterkit/2021/1111540100_eph3_BGx0_{filenumber}.root", "examples")],path=main)
 
-# fill final state particle lists
+# Fill final state particle lists
 ma.fillParticleList("e+:uncorrected", "electronID > 0.1 and dr < 0.5 and abs(dz) < 2 and thetaInCDCAcceptance", path=main)
 stdV0s.stdKshorts(path=main)
 
-# combine final state particles to form composite particles [S20]
+# Combine final state particles to form composite particles
 ma.reconstructDecay("J/psi:ee -> e+:uncorrected e-:uncorrected", cut="dM < 0.11", path=main)
 
-# combine J/psi and KS candidates to form B0 candidates
+# Combine J/psi and KS candidates to form B0 candidates
 dec_str = "B0 -> J/psi:ee K_S0:merged"
 cut_b0 = "Mbc>5.2 and abs(deltaE)<0.15"
 ma.reconstructDecay(dec_str, cut=cut_b0, path=main)
@@ -32,7 +32,14 @@ ma.reconstructDecay(dec_str, cut=cut_b0, path=main)
 # Perform MC matching
 ma.matchMCTruth("B0", path=main)
 
-## Define which variable to export to the output file (ntuple)
+# Build the ROE object and apply a mask on it
+ma.buildRestOfEvent('B0', fillWithMostLikely=True, path = main)
+track_based_cuts = "thetaInCDCAcceptance and pt > 0.075 and dr < 5 and abs(dz) < 10"
+ecl_based_cuts = "thetaInCDCAcceptance and E > 0.05"
+roe_mask = ("my_mask", track_based_cuts, ecl_based_cuts)
+ma.appendROEMasks("B0", [roe_mask], path=main)
+
+###### Define which variable to export to the output file (ntuple)
 # vm.addAlias("ep_E","daughter(0, daughter(0, E))") # a way to define an alias for a particular variable
 
 # Variables associated with B0
@@ -57,8 +64,20 @@ all_vars += vu.create_aliases_for_selected(
 
 # Add variables in CMS for all particles
 cmskinematics = vu.create_aliases(vc.kinematics, "useCMSFrame({variable})", "CMS")
-all_vars += vu.create_aliases_for_selected(cmskinematics, "^B0 -> [^J/psi -> ^e+ ^e-] [^K_S0 -> ^pi+ ^pi-]")
+all_vars += vu.create_aliases_for_selected(
+    cmskinematics, 
+    "^B0 -> [^J/psi -> ^e+ ^e-] [^K_S0 -> ^pi+ ^pi-]",
+    prefix=["B0", "Jpsi", "ep", "em", "K0s", "pip", "pim"])
 
+# Add ROE variables
+roe_kinematics = ["roeE()", "roeM()", "roeP()", "roeMbc()", "roeDeltae()"]
+roe_multiplicities = ["nROE_Charged()", "nROE_Photons()", "nROE_NeutralHadrons()"]
+all_vars += roe_kinematics + roe_multiplicities
+# Adding masked ROE variables
+for name in roe_kinematics + roe_multiplicities:
+    all_vars += [name[:-2] + "(my_mask)"]
+
+# Export reconstruction result in a root file
 ma.variablesToNtuple(
     "B0",
     variables=all_vars,
@@ -67,8 +86,8 @@ ma.variablesToNtuple(
     path=main,
 )
 
-# start the event loop (actually start processing things)
+# Start the event loop (actually start processing things)
 b2.process(main)
 
-# print out the summary
+# Print out the summary
 print(b2.statistics)
