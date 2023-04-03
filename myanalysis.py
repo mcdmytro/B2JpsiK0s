@@ -49,6 +49,12 @@ ecl_based_cuts = "thetaInCDCAcceptance and E > 0.05"
 roe_mask = ("my_mask", track_based_cuts, ecl_based_cuts)
 ma.appendROEMasks("B0", [roe_mask], path=main)
 
+# Best candidate selectin
+b2.set_random_seed("Belle II StarterKit")
+# ma.rankByHighest("B0", variable="random", numBest=1, path=main)
+# ma.rankByHighest("B0", variable="random", path=main)
+ma.rankByHighest("B0", variable="deltaE", path=main)
+
 #
 #    Define which variable to export to the output file (ntuple)
 #
@@ -56,7 +62,7 @@ ma.appendROEMasks("B0", [roe_mask], path=main)
 # vm.addAlias("ep_E","daughter(0, daughter(0, E))") # a way to define an alias for a particular variable
 
 # Adding B0 variables
-std_vars = vc.kinematics + vc.mc_kinematics + vc.mc_truth
+std_vars = vc.inv_mass + vc.kinematics + vc.mc_kinematics + vc.mc_truth
 all_vars = std_vars + vc.deltae_mbc
 
 # Add ROE variables
@@ -93,6 +99,11 @@ all_vars += vu.create_aliases_for_selected(
     cmskinematics, 
     "^B0 -> [^J/psi -> ^e+ ^e-] [^K_S0 -> ^pi+ ^pi-]",
     prefix=["B0", "Jpsi", "ep", "em", "K0s", "pip", "pim"])
+
+# BCS selection variables
+vm.addAlias("rnd", "random")
+vm.addAlias("deltaE_rnk", "extraInfo(deltaE_rank)")
+all_vars += ['rnd','deltaE_rnk']
 
 # Export reconstruction result in a root file
 ma.variablesToNtuple(
