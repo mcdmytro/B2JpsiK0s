@@ -7,6 +7,7 @@ import stdV0s
 import variables.collections as vc
 from variables import variables as vm
 import variables.utils as vu
+import flavorTagger as ft
 
 # Get input file number from the command line
 filenumber = sys.argv[1]
@@ -48,6 +49,10 @@ track_based_cuts = "thetaInCDCAcceptance and pt > 0.075 and dr < 5 and abs(dz) <
 ecl_based_cuts = "thetaInCDCAcceptance and E > 0.05"
 roe_mask = ("my_mask", track_based_cuts, ecl_based_cuts)
 ma.appendROEMasks("B0", [roe_mask], path=main)
+
+# Flavor tagging
+b2.conditions.prepend_globaltag(ma.getAnalysisGlobaltag())       # set analysis global tag
+ft.flavorTagger(["B0"], path=main)
 
 # Best candidate selectin
 b2.set_random_seed("Belle II StarterKit")
@@ -104,6 +109,9 @@ all_vars += vu.create_aliases_for_selected(
 vm.addAlias("rnd", "random")
 vm.addAlias("deltaE_rnk", "extraInfo(deltaE_rank)")
 all_vars += ['rnd','deltaE_rnk']
+
+# Flavor tagging variable
+all_vars += ft.flavor_tagging
 
 # Export reconstruction result in a root file
 ma.variablesToNtuple(
