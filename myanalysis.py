@@ -8,6 +8,7 @@ import variables.collections as vc
 from variables import variables as vm
 import variables.utils as vu
 import flavorTagger as ft
+import vertex as vx
 
 # Get input file number from the command line
 filenumber = sys.argv[1]
@@ -21,6 +22,7 @@ ma.inputMdstList(filelist=[b2.find_file(f"starterkit/2021/1111540100_eph3_BGx0_{
 # Fill final state particle lists
 ma.fillParticleList("e+:uncorrected", "electronID > 0.1 and dr < 0.5 and abs(dz) < 2 and thetaInCDCAcceptance", path=main)
 stdV0s.stdKshorts(path=main)
+vx.kFit("K_S0:merged", conf_level=0.0, path=main)
 
 # Bremstrahlung correction
 vm.addAlias("goodFWDGamma", "passesCut(clusterE>0.075 and clusterReg==1)")
@@ -32,6 +34,7 @@ ma.correctBrems("e+:corrected", "e+:uncorrected", "gamma:brems", path=main)
 
 # Combine final state particles to form composite particles
 ma.reconstructDecay("J/psi:ee -> e+:corrected e-:corrected ?addbrems", cut="dM < 0.11", path=main)
+vx.kFit("J/psi:ee", conf_level=0.0, path=main)
 
 # Combine J/psi and KS candidates to form B0 candidates
 ma.reconstructDecay(
@@ -39,6 +42,7 @@ ma.reconstructDecay(
     cut="Mbc>5.2 and abs(deltaE)<0.15",
     path=main
 )
+# main.add_module("TreeFitter", particleList="B0")
 
 # Perform MC matching
 ma.matchMCTruth("B0", path=main)
@@ -53,6 +57,9 @@ ma.appendROEMasks("B0", [roe_mask], path=main)
 # Flavor tagging
 b2.conditions.prepend_globaltag(ma.getAnalysisGlobaltag())       # set analysis global tag
 ft.flavorTagger(["B0"], path=main)
+
+# Tag Vertexing
+vx.TagV("B0", fitAlgorithm="Rave", path=main)
 
 # Best candidate selectin
 b2.set_random_seed("Belle II StarterKit")
@@ -89,8 +96,8 @@ all_vars += vu.create_aliases_for_selected(
 )
 
 # Adding intermediate particles' variables
-interm_vars = vc.inv_mass + std_vars
-all_vars += vu.create_aliases_for_selected(interm_vars, "B0 -> ^J/psi ^K_S0", prefix=["Jpsi", "K0s"])
+interm_vars = vc.inv_mass + std_vars + vc.vertex + vc.mc_vertex
+all_vars += vu.create_aliases_for_selected(interm_vars, "B0 -> ^J/psi ^K_S0", prefix=["Jpsi", "K0s"]) \
 
 # Bremnsstrahlung correction variables
 vm.addAlias("Jpsi_M_uncorrected", "daughter(0, daughterCombination(M,0:0,1:0))")
@@ -110,8 +117,9 @@ vm.addAlias("rnd", "random")
 vm.addAlias("deltaE_rnk", "extraInfo(deltaE_rank)")
 all_vars += ['rnd','deltaE_rnk']
 
-# Flavor tagging variable
+# Flavor tagging and tag vertexing variables
 all_vars += ft.flavor_tagging
+all_vars += vc.tag_vertex + vc.mc_tag_vertex
 
 # Export reconstruction result in a root file
 ma.variablesToNtuple(
